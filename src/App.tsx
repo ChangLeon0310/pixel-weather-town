@@ -1,7 +1,1 @@
-import { useEffect, useRef } from 'react'
-import type Phaser from 'phaser'
-import { createGame } from './game/PhaserGame'
-import { HUD } from './ui/components/HUD'
-import { NewsPanel } from './ui/components/NewsPanel'
-import { useWorldState } from './ui/hooks/useWorldState'
-export default function App(){const host=useRef<HTMLDivElement>(null);const state=useWorldState();useEffect(()=>{if(!host.current)return;const game:Phaser.Game=createGame(host.current);return()=>game.destroy(true)},[]);return <main><div ref={host} className="game"/><div className="title"><b>PIXEL WEATHER TOWN</b><span>一座正在自己生活的小鎮</span></div><HUD state={state}/><NewsPanel state={state}/><div className="scanlines"/></main>}
+import{useEffect,useRef,useState}from'react';import type Phaser from'phaser';import{game}from'./Game';import{getWorld}from'./world';export default function App(){const host=useRef<HTMLDivElement>(null),[w,setW]=useState(getWorld());useEffect(()=>{const g:Phaser.Game=game(host.current!);const t=setInterval(()=>setW(getWorld()),500);return()=>{clearInterval(t);g.destroy(true)}},[]);return <main><div ref={host} className="game"/><aside className="hud panel"><b>{w.time}</b><span>{w.weather}　{w.temp}°C</span><span>{w.season}季第 {w.seasonDay} 天 · 第 {w.year} 年</span><span>Villagers: 20</span><small>10 分鐘 = 小鎮 1 天</small></aside><aside className="news panel"><b>PIXEL TOWN TIMES　DAY {w.day}</b><p>今天是第 {w.year} 年{w.season}季第 {w.seasonDay} 天。</p><p>天氣為{w.weather}，氣溫 {w.temp}°C。</p><p>目前有 {w.outdoor} 位居民在戶外活動。</p></aside></main>}

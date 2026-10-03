@@ -1,0 +1,6 @@
+export type Season='春'|'夏'|'秋'|'冬';export type Weather='晴天'|'多雲'|'雨天'|'雷雨';export type Period='清晨'|'白天'|'黃昏'|'夜晚';
+export interface World{time:string;day:number;year:number;season:Season;seasonDay:number;weather:Weather;temp:number;period:Period;outdoor:number}
+const KEY='pixel-town-v2',DAY=600000,SEASON_DAYS=7,seasons:Season[]=['春','夏','秋','冬'];
+let epoch=Number(localStorage.getItem(KEY))||Date.now();localStorage.setItem(KEY,String(epoch));
+function rand(seed:number){return Math.abs(Math.sin(seed*999))*1}
+export function getWorld():World{const elapsed=Date.now()-epoch,absolute=Math.floor(elapsed/DAY),p=(elapsed%DAY)/DAY,mins=Math.floor(p*1440),h=Math.floor(mins/60),m=mins%60,year=Math.floor(absolute/28)+1,doy=absolute%28,si=Math.floor(doy/SEASON_DAYS),season=seasons[si],seasonDay=doy%7+1,r=rand(absolute+Math.floor(epoch/1000));let weather:Weather;const limits=season==='春'?[.44,.65,.94]:season==='夏'?[.54,.67,.88]:season==='秋'?[.58,.82,.97]:[.38,.79,.98];weather=r<limits[0]?'晴天':r<limits[1]?'多雲':r<limits[2]?'雨天':'雷雨';const base={春:20,夏:30,秋:22,冬:12}[season];return{time:`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`,day:absolute+1,year,season,seasonDay,weather,temp:Math.round(base+(rand(absolute+3)-.5)*6),period:h>=5&&h<7?'清晨':h>=7&&h<17?'白天':h>=17&&h<20?'黃昏':'夜晚',outdoor:weather==='雷雨'?0:weather==='雨天'?8:h>=6&&h<22?16:0}}
