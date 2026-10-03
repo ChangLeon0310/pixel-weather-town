@@ -1,0 +1,2 @@
+import type { WorldState } from '../../types/world'
+export function createNews(s:WorldState){const weather={Clear:'晴朗',Clouds:'多雲',Rain:'雨天',Thunderstorm:'雷雨'}[s.weather];const extra=s.weather==='Rain'?`酒館內目前約有 ${s.tavernCount} 位居民避雨。`:s.weather==='Thunderstorm'?'雷雨來襲，居民正加快腳步返家。':s.period==='NIGHT'?'夜色降臨，小鎮逐漸安靜。':'中央廣場今天依然充滿生活氣息。';return [`今天為${weather}。`,`目前氣溫 ${s.temperature}°C，濕度 ${s.humidity}%。`,`20 位居民中有 ${s.outdoorCount} 位待在戶外。`,extra]}

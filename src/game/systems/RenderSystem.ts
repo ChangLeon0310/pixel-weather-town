@@ -1,0 +1,26 @@
+import Phaser from 'phaser'
+import type { DayPeriod, WeatherKind } from '../../types/world'
+import { houses, MAP_TILES, plaza, riverX, shop, tavern, TILE, WORLD_SIZE } from '../world/MapLayout'
+export class RenderSystem {
+ private scene:Phaser.Scene; private overlay!:Phaser.GameObjects.Rectangle; private rain?:Phaser.GameObjects.Particles.ParticleEmitter; private ripples:Phaser.GameObjects.Arc[]=[]; private leaves:Phaser.GameObjects.Container[]=[]; private lamps:Phaser.GameObjects.Arc[]=[]; private windows:Phaser.GameObjects.Rectangle[]=[]; private lastWeather=''; private lastPeriod=''
+ constructor(scene:Phaser.Scene){this.scene=scene}
+ create(){this.createTextures();this.drawMap();this.overlay=this.scene.add.rectangle(0,0,WORLD_SIZE,WORLD_SIZE,0x10152c,0).setOrigin(0).setDepth(90).setBlendMode(Phaser.BlendModes.MULTIPLY);this.scene.cameras.main.setBounds(0,0,WORLD_SIZE,WORLD_SIZE);this.scene.physics.world.setBounds(0,0,WORLD_SIZE,WORLD_SIZE)}
+ private createTextures(){const g=this.scene.add.graphics();g.fillStyle(0x8fd36a).fillRect(0,0,TILE,TILE).fillStyle(0x86c961).fillRect(2,4,2,2).fillRect(17,15,2,2).generateTexture('grass',TILE,TILE);g.clear();g.fillStyle(0x56a9d6).fillRect(0,0,TILE,TILE).fillStyle(0x86d0eb).fillRect(1,6,TILE-4,2).generateTexture('water',TILE,TILE);g.clear();g.fillStyle(0xd9bc78).fillRect(0,0,TILE,TILE).fillStyle(0xcaaa68).fillRect(3,4,3,2).generateTexture('path',TILE,TILE);g.destroy()}
+ private drawMap(){
+  for(let y=0;y<MAP_TILES;y++)for(let x=0;x<MAP_TILES;x++)this.scene.add.image(x*TILE,y*TILE,'grass').setOrigin(0)
+  for(let y=0;y<MAP_TILES;y++)for(let x=34;x<38;x++){const w=this.scene.add.image(x*TILE,y*TILE,'water').setOrigin(0);this.scene.tweens.add({targets:w,x:w.x+2,duration:900+(y%4)*100,yoyo:true,repeat:-1,ease:'Sine.inOut'})}
+  this.scene.add.rectangle(plaza.x,plaza.y,plaza.w,plaza.h,0xe0c989).setOrigin(0)
+  this.path(0,18,34,3);this.path(19,0,3,40);this.path(7,8,26,2);this.path(6,26,28,2)
+  houses.forEach((p,i)=>this.house(p.x,p.y,i));this.house(tavern.x,tavern.y,10,'酒');this.house(shop.x,shop.y,11,'店')
+  const trees=[[2,3],[14,3],[28,3],[3,11],[8,13],[29,13],[3,34],[17,34],[28,35],[31,11],[12,24],[27,24]];trees.forEach(([x,y])=>this.tree(x*TILE,y*TILE))
+  for(let y=2;y<39;y+=4){const r=this.scene.add.circle(riverX+TILE,y*TILE,10,0x9be2f2,0).setStrokeStyle(1,0xc9f2f9,.6);this.ripples.push(r);this.scene.tweens.add({targets:r,scale:1.7,alpha:{from:.7,to:0},duration:1200,repeat:-1,delay:y*19})}
+  for(const x of [14,24,29])this.lamp(x*TILE,13*TILE);for(const x of [14,24,29])this.lamp(x*TILE,24*TILE)
+ }
+ private path(x:number,y:number,w:number,h:number){for(let yy=y;yy<y+h;yy++)for(let xx=x;xx<x+w;xx++)this.scene.add.image(xx*TILE,yy*TILE,'path').setOrigin(0)}
+ private house(x:number,y:number,i:number,label?:string){const c=this.scene.add.container(x,y);const body=this.scene.add.rectangle(0,22,72,50,i%2?0xd58b66:0xe0a067).setOrigin(0);const roof=this.scene.add.triangle(36,0,0,30,36,0,72,30,i%2?0x874b49:0x9c5445).setOrigin(.5,0);const door=this.scene.add.rectangle(30,46,14,26,0x654433).setOrigin(0);const win=this.scene.add.rectangle(9,42,14,12,0x8ed2da).setOrigin(0).setStrokeStyle(2,0xf4df9b);c.add([body,roof,door,win]);if(label)c.add(this.scene.add.text(52,40,label,{fontFamily:'monospace',fontSize:'13px',color:'#fff2c2'}).setOrigin(.5));this.windows.push(win)}
+ private tree(x:number,y:number){const c=this.scene.add.container(x,y);c.add([this.scene.add.rectangle(19,27,8,22,0x765132),this.scene.add.circle(23,20,21,0x397c4b),this.scene.add.circle(11,23,13,0x4b9254),this.scene.add.circle(33,25,14,0x4b9254)]);this.leaves.push(c);this.scene.tweens.add({targets:c,angle:{from:-1.5,to:1.5},duration:1700+Math.random()*500,yoyo:true,repeat:-1,ease:'Sine.inOut'})}
+ private lamp(x:number,y:number){this.scene.add.rectangle(x,y+9,4,24,0x55473d).setDepth(2);const l=this.scene.add.circle(x,y,7,0xffd777,.12).setDepth(3);this.lamps.push(l)}
+ update(period:DayPeriod,weather:WeatherKind){if(period!==this.lastPeriod||weather!==this.lastWeather){const base=period==='NIGHT'?.58:period==='SUNSET'?.24:0;const cloud=weather==='Clouds'?.09:weather==='Rain'||weather==='Thunderstorm'?.17:0;this.scene.tweens.add({targets:this.overlay,alpha:Math.min(.68,base+cloud),duration:1600});const on=period==='NIGHT';this.windows.forEach(w=>w.setFillStyle(on?0xffd66b:0x8ed2da,on?1:1));this.lamps.forEach(l=>{l.setFillStyle(0xffd777,on?.8:.12);l.setScale(on?2.8:1)});this.setRain(weather==='Rain'||weather==='Thunderstorm');this.lastPeriod=period;this.lastWeather=weather}}
+ private setRain(on:boolean){if(on&&!this.rain){if(!this.scene.textures.exists('drop')){const g=this.scene.add.graphics().fillStyle(0xb7ddff).fillRect(0,0,2,10);g.generateTexture('drop',2,10);g.destroy()}this.rain=this.scene.add.particles(0,0,'drop',{x:{min:0,max:WORLD_SIZE},y:-20,speedY:{min:480,max:650},speedX:-90,lifespan:1800,quantity:9,frequency:45,alpha:{start:.7,end:.2}}).setDepth(95)}else if(!on&&this.rain){this.rain.destroy();this.rain=undefined}}
+ lightning(){const flash=this.scene.add.rectangle(0,0,WORLD_SIZE,WORLD_SIZE,0xeaf3ff,.85).setOrigin(0).setDepth(100);this.scene.tweens.add({targets:flash,alpha:0,duration:180,onComplete:()=>flash.destroy()})}
+}

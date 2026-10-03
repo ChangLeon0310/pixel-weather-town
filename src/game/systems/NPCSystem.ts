@@ -1,0 +1,20 @@
+import Phaser from 'phaser'
+import type { NPC, NPCState, Point, WeatherKind } from '../../types/world'
+import { createNPCs } from '../npc/NPCFactory'
+import { houses, outsideSpots, tavernDoor, TILE } from '../world/MapLayout'
+import { worldStore } from '../world/WorldStore'
+type Actor={data:NPC; sprite:Phaser.GameObjects.Container; label:Phaser.GameObjects.Text; body:Phaser.GameObjects.Rectangle; head:Phaser.GameObjects.Arc; nextDecision:number}
+export class NPCSystem {
+ private scene:Phaser.Scene; private actors:Actor[]=[];private lastSchedule=''
+ constructor(scene:Phaser.Scene){this.scene=scene}
+ create(){const npcs=createNPCs(houses.map(p=>({x:p.x+36,y:p.y+78})));this.actors=npcs.map(n=>this.createActor(n));worldStore.setVillagers(npcs);this.applySchedule(true)}
+ private createActor(n:NPC):Actor{const shadow=this.scene.add.ellipse(0,12,17,7,0x18351f,.3);const body=this.scene.add.rectangle(0,1,12,15,n.color).setStrokeStyle(2,0x403747);const head=this.scene.add.circle(0,-10,7,0xf0c7a0).setStrokeStyle(2,0x403747);const hair=this.scene.add.rectangle(0,-15,12,5,0x49372e);const c=this.scene.add.container(n.x,n.y,[shadow,body,head,hair]).setDepth(15);const label=this.scene.add.text(n.x,n.y-29,n.name,{fontFamily:'monospace',fontSize:'10px',color:'#fffbe8',backgroundColor:'#25304bbb',padding:{x:3,y:1}}).setOrigin(.5).setDepth(16);return {data:n,sprite:c,label,body,head,nextDecision:0}}
+ update(time:number,delta:number){this.applySchedule(false);const weather=worldStore.getState().weather;for(const a of this.actors){this.updateActor(a,time,delta,weather);a.label.setPosition(a.sprite.x,a.sprite.y-29);a.sprite.setDepth(15+Math.floor(a.sprite.y));a.label.setDepth(16+Math.floor(a.sprite.y))}if(Math.floor(time)%1000<18)worldStore.recount()}
+ private scheduleKey(){const h=new Date().getHours();return h<6?'sleep':h<8?'morning':h<18?'day':h<22?'evening':'sleep'}
+ private applySchedule(force:boolean){const key=this.scheduleKey(),weather=worldStore.getState().weather;if(!force&&key===this.lastSchedule&&weather!=='Thunderstorm')return;this.lastSchedule=key;for(const a of this.actors){if(weather==='Thunderstorm'){this.setTarget(a,this.home(a), 'RETURN_HOME','home');continue}if(key==='sleep'){this.teleportHome(a);continue}if(key==='morning'||key==='day'){const stayHome=(weather==='Rain'&&Math.random()<.45);if(stayHome)this.teleportHome(a);else if(weather==='Rain'&&Math.random()<.45)this.setTarget(a,tavernDoor,'WALK','tavern');else this.setTarget(a,this.randomOutside(),'WALK','outside')}else{if(Math.random()<.25)this.setTarget(a,tavernDoor,'WALK','tavern');else this.setTarget(a,this.home(a),'RETURN_HOME','home')}}}
+ private updateActor(a:Actor,time:number,delta:number,weather:WeatherKind){const n=a.data;if(n.state==='SLEEP'||!n.target)return;const dx=n.target.x-a.sprite.x,dy=n.target.y-a.sprite.y,dist=Math.hypot(dx,dy);if(dist<3){a.sprite.setPosition(n.target.x,n.target.y);n.x=a.sprite.x;n.y=a.sprite.y;n.target=undefined;n.state='IDLE';a.body.y=1;if(time>a.nextDecision&&n.destination==='outside'){a.nextDecision=time+1800+Math.random()*2600;if(Math.random()<.72)this.setTarget(a,this.randomOutside(),'WALK','outside')}return}const speed=(n.state==='RETURN_HOME'||weather==='Thunderstorm'?68:35)*(delta/1000);a.sprite.x+=dx/dist*speed;a.sprite.y+=dy/dist*speed;n.x=a.sprite.x;n.y=a.sprite.y;a.body.y=1+Math.sin(time/90)*1.5;a.sprite.scaleX=dx<0?-1:1;a.label.setScale(a.sprite.scaleX<0?-1:1,1)}
+ private setTarget(a:Actor,p:Point,state:NPCState,destination:NPC['destination']){a.data.target={...p};a.data.state=state;a.data.destination=destination;a.sprite.setVisible(true);a.label.setVisible(true)}
+ private home(a:Actor){const i=Number(a.data.homeId.split('-')[1])||0;const p=houses[i%houses.length];return{x:p.x+36,y:p.y+78}}
+ private teleportHome(a:Actor){const p=this.home(a);a.sprite.setPosition(p.x,p.y);a.data.x=p.x;a.data.y=p.y;a.data.target=undefined;a.data.state='SLEEP';a.data.destination='home';a.sprite.setVisible(false);a.label.setVisible(false)}
+ private randomOutside(){const p=Phaser.Utils.Array.GetRandom(outsideSpots);return{x:p.x+(Math.random()-.5)*TILE*2,y:p.y+(Math.random()-.5)*TILE*2}}
+}
